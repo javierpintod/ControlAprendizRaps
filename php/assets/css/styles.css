@@ -1747,3 +1747,126 @@ a:hover {
     .filter-controls-group { flex-direction: column; align-items: stretch; }
     .filter-select { width: 100%; }
 }
+
+/* Context Bar (Curso / Aprendiz Switcher) */
+.context-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 16px 20px;
+    flex-wrap: wrap;
+}
+
+.context-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 240px;
+    flex: 1;
+}
+
+.context-field label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.context-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+/* Ranking Card (Lista de Aprendices) */
+.ranking-card {
+    margin-top: 16px;
+}
+
+.ranking-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.ranking-row {
+    display: grid;
+    grid-template-columns: 260px 1fr 70px 140px;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 14px;
+    border-radius: var(--radius-md);
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid transparent;
+    transition: var(--transition);
+    color: var(--text-primary);
+}
+
+.ranking-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--border-color);
+}
+
+.ranking-row.active {
+    background: var(--color-primary-soft);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.ranking-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ranking-bar {
+    height: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: var(--radius-full);
+    overflow: hidden;
+}
+
+.ranking-pct {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    font-size: 0.95rem;
+    text-align: right;
+    color: #60a5fa;
+}
+
+.ranking-meta {
+    font-size: 0.78rem;
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+/* Form Layout Helpers */
+.form-grid { display: flex; flex-direction: column; gap: 14px; }
+.form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-group label { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); }
+.stack-form { display: flex; flex-direction: column; gap: 12px; }
+.radio-row { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.85rem; color: var(--text-secondary); }
+.radio-row label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.btn-danger-soft { background: var(--color-danger-soft); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
+.btn-danger-soft:hover { background: rgba(239, 68, 68, 0.3); color: #ffffff; }
+
+/* Empty State */
+.empty-state {
+    padding: 60px 40px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+}
+

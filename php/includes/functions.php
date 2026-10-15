@@ -8,6 +8,18 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once __DIR__ . '/repository.php';
+
+/**
+ * Redirige al instalador si la base de datos aún no está creada.
+ */
+function require_db(): void {
+    if (!db_is_ready()) {
+        header('Location: install.php');
+        exit;
+    }
+}
+
 /**
  * Normaliza el estado de un juicio evaluativo a uno de los 4 estados canónicos:
  * 'Aprobado', 'Por Mejorar', 'Pendiente', 'No Evaluado'
@@ -45,37 +57,104 @@ function normalize_status($status) {
 }
 
 /**
- * Obtiene los RAPs actualmente cargados en la sesión,
- * o carga el dataset por defecto de ADSO (48 RAPs).
+ * Resuelve el curso y aprendiz activos (GET > sesión > primer registro disponible).
+ * Devuelve ['curso' => ?array, 'aprendiz' => ?array, 'matricula_id' => ?int,
+ *          'cursos' => array, 'aprendices' => array]
  */
-function get_active_raps() {
-    if (isset($_SESSION['active_raps']) && is_array($_SESSION['active_raps']) && count($_SESSION['active_raps']) > 0) {
-        return $_SESSION['active_raps'];
+function get_active_context(): array {
+    if (isset($_GET['curso'])) {
+        $_SESSION['curso_id'] = (int)$_GET['curso'];
+        if (!isset($_GET['aprendiz'])) unset($_SESSION['aprendiz_id']);
     }
-    
-    // Carga desde archivo JSON por defecto
-    $defaultFile = __DIR__ . '/../data/default_raps.json';
-    if (file_exists($defaultFile)) {
-        $json = file_get_contents($defaultFile);
-        $data = json_decode($json, true);
-        if (is_array($data)) {
-            $_SESSION['active_raps'] = $data;
-            $_SESSION['active_filename'] = 'ADSO_2670189_Consolidado_Oficial.xlsx';
-            $_SESSION['active_timestamp'] = date('Y-m-d H:i:s');
-            return $data;
-        }
+    if (isset($_GET['aprendiz'])) {
+        $_SESSION['aprendiz_id'] = (int)$_GET['aprendiz'];
     }
-    
-    return [];
+
+    $cursos = list_cursos();
+    $curso = null;
+    if (!empty($_SESSION['curso_id'])) {
+        $curso = get_curso((int)$_SESSION['curso_id']);
+    }
+    if (!$curso && $cursos) {
+        $curso = $cursos[0];
+    }
+    $_SESSION['curso_id'] = $curso['id'] ?? null;
+
+    $aprendices = $curso ? list_aprendices((int)$curso['id']) : [];
+    $aprendiz = null;
+    foreach ($aprendices as $a) {
+        if ((int)$a['id'] === (int)($_SESSION['aprendiz_id'] ?? 0)) { $aprendiz = $a; break; }
+    }
+    if (!$aprendiz && $aprendices) {
+        $aprendiz = $aprendices[0];
+    }
+    $_SESSION['aprendiz_id'] = $aprendiz['id'] ?? null;
+
+    return [
+        'curso'        => $curso,
+        'aprendiz'     => $aprendiz,
+        'matricula_id' => $aprendiz ? (int)$aprendiz['matricula_id'] : null,
+        'cursos'       => $cursos,
+        'aprendices'   => $aprendices,
+    ];
 }
 
 /**
- * Guarda los RAPs en la sesión activa
+ * Devuelve los RAPs (con juicio) del aprendiz activo en el curso activo.
  */
-function set_active_raps($raps, $filename = 'Archivo_Cargado.xlsx') {
-    $_SESSION['active_raps'] = $raps;
-    $_SESSION['active_filename'] = $filename;
-    $_SESSION['active_timestamp'] = date('Y-m-d H:i:s');
+function get_active_raps(): array {
+    $ctx = get_active_context();
+    return $ctx['matricula_id'] ? get_raps_for_matricula($ctx['matricula_id']) : [];
+}
+
+/**
+ * Convierte una fila cruda (Excel/CSV, cabeceras flexibles) al formato de import_rows().
+ * Incrementa $normalized cuando corrige estado u horas.
+ */
+function normalize_import_row(array $raw, int $index, int &$normalized): ?array {
+    // Cabeceras a minúsculas, sin tildes ni espacios
+    $row = [];
+    foreach ($raw as $k => $v) {
+        $key = strtolower(trim((string)$k));
+        $key = strtr($key, ['á'=>'a','é'=>'e','í'=>'i','ó'=>'o','ú'=>'u','ñ'=>'n','Á'=>'a','É'=>'e','Í'=>'i','Ó'=>'o','Ú'=>'u']);
+        $key = preg_replace('/[^a-z0-9]+/', '_', $key);
+        $row[trim($key, '_')] = is_string($v) ? trim($v) : $v;
+    }
+    $get = function (array $keys, $default = '') use ($row) {
+        foreach ($keys as $k) {
+            if (isset($row[$k]) && $row[$k] !== '') return $row[$k];
+        }
+        return $default;
+    };
+
+    $descripcion = (string)$get(['descripcion_rap', 'descripcion', 'resultado', 'resultado_aprendizaje']);
+    if ($descripcion === '' && empty(array_filter($row, fn($v) => $v !== '' && $v !== null))) {
+        return null; // fila vacía
+    }
+
+    $horasRaw = $get(['horas', 'horas_creditos', 'duracion']);
+    $horas = is_numeric($horasRaw) && (int)$horasRaw > 0 ? (int)$horasRaw : 20;
+    if (!is_numeric($horasRaw) || (int)$horasRaw <= 0) $normalized++;
+
+    $rawStatus = (string)$get(['estado', 'juicio_evaluativo', 'juicio'], '');
+    $estado = normalize_status($rawStatus);
+    if (mb_strtolower($rawStatus) !== mb_strtolower($estado)) $normalized++;
+
+    return [
+        'codigo_rap'         => (string)$get(['id_rap', 'codigo_rap', 'id', 'rap'], 'RAP-AUTO-' . ($index + 1)),
+        'codigo_oficial'     => (string)$get(['codigo_oficial', 'code']),
+        'codigo_competencia' => (string)$get(['codigo_competencia']),
+        'competencia'        => (string)$get(['competencia_modulo', 'competencia', 'modulo'], 'Competencia General'),
+        'descripcion'        => $descripcion !== '' ? $descripcion : 'Sin descripción',
+        'horas'              => $horas,
+        'fase'               => (string)$get(['fase', 'fase_proyecto']),
+        'estado'             => $estado,
+        'fecha'              => parse_date_value($get(['fecha_evaluacion', 'fecha'], null)),
+        'instructor'         => (string)$get(['instructor_evaluador', 'instructor', 'evaluador']),
+        'observaciones'      => (string)$get(['observaciones', 'retroalimentacion', 'feedback']),
+        'documento_aprendiz' => (string)$get(['documento_aprendiz', 'documento', 'identificacion', 'cedula']),
+        'nombre_aprendiz'    => (string)$get(['nombre_aprendiz', 'aprendiz', 'nombre_completo']),
+    ];
 }
 
 /**

@@ -3,12 +3,14 @@
  * ControlRap Aprendiz - Dashboard Principal Interactivo
  */
 require_once __DIR__ . '/includes/functions.php';
+require_db();
 
 $pageTitle = 'Dashboard Analítico de Avance Formativo';
-$raps = get_active_raps();
+$ctx = get_active_context();
+$curso = $ctx['curso'];
+$aprendiz = $ctx['aprendiz'];
+$raps = $ctx['matricula_id'] ? get_raps_for_matricula($ctx['matricula_id']) : [];
 $metrics = calculate_metrics($raps);
-$currentFilename = $_SESSION['active_filename'] ?? 'ADSO_2670189_Consolidado_Oficial.xlsx';
-$currentTimestamp = $_SESSION['active_timestamp'] ?? date('Y-m-d H:i');
 
 // Obtener listas únicas para los selectores de filtro
 $competenciasUnicas = [];
@@ -28,19 +30,63 @@ require_once __DIR__ . '/includes/header.php';
 ?>
 
 <div class="dashboard-wrapper">
+    <!-- Selector de contexto: curso y aprendiz -->
+    <form method="GET" class="context-bar" id="contextForm">
+        <div class="context-field">
+            <label for="ctxCurso">Curso / Ficha</label>
+            <select id="ctxCurso" name="curso" class="filter-select" onchange="this.form.aprendiz && (this.form.aprendiz.disabled = true); this.form.submit()">
+                <?php foreach ($ctx['cursos'] as $c): ?>
+                    <option value="<?php echo (int)$c['id']; ?>" <?php echo ($curso && (int)$c['id'] === (int)$curso['id']) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($c['codigo_ficha'] . ' — ' . $c['nombre']); ?> (<?php echo (int)$c['total_aprendices']; ?> aprendices)
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="context-field">
+            <label for="ctxAprendiz">Aprendiz</label>
+            <select id="ctxAprendiz" name="aprendiz" class="filter-select" onchange="this.form.submit()" <?php echo $ctx['aprendices'] ? '' : 'disabled'; ?>>
+                <?php if (!$ctx['aprendices']): ?><option>Sin aprendices matriculados</option><?php endif; ?>
+                <?php foreach ($ctx['aprendices'] as $a): ?>
+                    <option value="<?php echo (int)$a['id']; ?>" <?php echo ($aprendiz && (int)$a['id'] === (int)$aprendiz['id']) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($a['apellidos'] . ', ' . $a['nombres'] . ' — ' . $a['documento']); ?> (<?php echo $a['avance_ponderado']; ?>%)
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="context-actions">
+            <a href="cursos.php" class="btn btn-outline btn-sm">Gestionar cursos</a>
+            <a href="aprendices.php" class="btn btn-outline btn-sm">Gestionar aprendices</a>
+        </div>
+    </form>
+
+<?php if (!$curso || !$aprendiz): ?>
+    <section class="empty-state card">
+        <h1 class="hero-title"><?php echo $curso ? 'Este curso aún no tiene aprendices' : 'Aún no hay cursos registrados'; ?></h1>
+        <p class="hero-desc">
+            <?php echo $curso
+                ? 'Matricula aprendices o carga un archivo Excel/CSV con las columnas documento_aprendiz y nombre_aprendiz para crearlos automáticamente.'
+                : 'Crea tu primer curso para empezar a registrar aprendices y resultados de aprendizaje.'; ?>
+        </p>
+        <div class="hero-actions">
+            <a href="<?php echo $curso ? 'aprendices.php' : 'cursos.php'; ?>" class="btn btn-primary"><?php echo $curso ? 'Matricular aprendiz' : 'Crear curso'; ?></a>
+            <?php if ($curso): ?><a href="upload.php" class="btn btn-secondary">Cargar archivo</a><?php endif; ?>
+        </div>
+    </section>
+</div>
+<?php require_once __DIR__ . '/includes/footer.php'; exit; endif; ?>
+
     <!-- Banner de Encabezado y Contexto Formativo -->
     <section class="program-hero-card">
         <div class="hero-left">
             <div class="hero-badge-row">
-                <span class="hero-tag">Ficha: 2670189</span>
-                <span class="hero-tag hero-tag-accent">ADSO - Modalidad Presencial</span>
-                <span class="hero-tag hero-tag-success">Corte Oficial 2026</span>
+                <span class="hero-tag">Ficha: <?php echo htmlspecialchars($curso['codigo_ficha']); ?></span>
+                <span class="hero-tag hero-tag-accent"><?php echo htmlspecialchars($curso['modalidad'] ?? 'Presencial'); ?></span>
+                <span class="hero-tag hero-tag-success">Doc. <?php echo htmlspecialchars($aprendiz['tipo_documento'] . ' ' . $aprendiz['documento']); ?></span>
             </div>
-            <h1 class="hero-title">Tecnólogo en Análisis y Desarrollo de Software</h1>
+            <h1 class="hero-title"><?php echo htmlspecialchars($aprendiz['nombres'] . ' ' . $aprendiz['apellidos']); ?></h1>
             <p class="hero-desc">
-                Monitoreo continuo de juicios evaluativos y resultados de aprendizaje (RAPs).
-                Archivo en memoria: <strong class="text-highlight"><?php echo htmlspecialchars($currentFilename); ?></strong>
-                <span class="hero-time">(Actualizado: <?php echo htmlspecialchars($currentTimestamp); ?>)</span>
+                <?php echo htmlspecialchars($curso['programa'] ?: $curso['nombre']); ?>
+                <span class="hero-time">· Matrícula: <?php echo htmlspecialchars($aprendiz['estado_matricula']); ?> · Datos persistidos en MySQL</span>
             </p>
         </div>
         <div class="hero-actions">
@@ -50,16 +96,7 @@ require_once __DIR__ . '/includes/header.php';
                     <polyline points="17 8 12 3 7 8"/>
                     <line x1="12" x2="12" y1="3" y2="15"/>
                 </svg>
-                <span>Cargar Nuevo Archivo</span>
-            </a>
-            <a href="load_sample.php" class="btn btn-secondary" title="Restaurar datos oficiales del programa">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/>
-                    <path d="M21 3v5h-5"/>
-                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/>
-                    <path d="M8 16H3v5"/>
-                </svg>
-                <span>Cargar Muestra (48 RAPs)</span>
+                <span>Cargar Archivo</span>
             </a>
         </div>
     </section>
@@ -237,6 +274,32 @@ require_once __DIR__ . '/includes/header.php';
             <div class="chart-canvas-wrapper" style="height: 220px;">
                 <canvas id="phasesChart"></canvas>
             </div>
+        </div>
+    </section>
+
+    <!-- Avance comparativo de los aprendices del curso -->
+    <section class="matrix-card ranking-card">
+        <div class="matrix-header">
+            <div>
+                <h2 class="matrix-title">Aprendices de la ficha <?php echo htmlspecialchars($curso['codigo_ficha']); ?></h2>
+                <p class="matrix-subtitle">Avance ponderado por horas de cada aprendiz matriculado. Haz clic para ver su detalle.</p>
+            </div>
+        </div>
+        <div class="ranking-list">
+            <?php foreach ($ctx['aprendices'] as $a):
+                $pct = (float)$a['avance_ponderado'];
+                $isActive = (int)$a['id'] === (int)$aprendiz['id']; ?>
+                <a class="ranking-row <?php echo $isActive ? 'active' : ''; ?>" href="index.php?curso=<?php echo (int)$curso['id']; ?>&aprendiz=<?php echo (int)$a['id']; ?>">
+                    <span class="ranking-name"><?php echo htmlspecialchars($a['nombres'] . ' ' . $a['apellidos']); ?></span>
+                    <span class="ranking-bar"><span class="progress-bar-fill progress-gradient" style="width: <?php echo min(100, $pct); ?>%"></span></span>
+                    <span class="ranking-pct"><?php echo $pct; ?>%</span>
+                    <span class="ranking-meta">
+                        <span class="text-success"><?php echo (int)$a['raps_aprobados']; ?> ✓</span>
+                        <span class="text-danger"><?php echo (int)$a['raps_por_mejorar']; ?> ⚠</span>
+                        <span class="text-warning"><?php echo (int)$a['raps_pendientes']; ?> ⏳</span>
+                    </span>
+                </a>
+            <?php endforeach; ?>
         </div>
     </section>
 
