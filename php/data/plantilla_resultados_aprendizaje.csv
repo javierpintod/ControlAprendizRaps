@@ -1,0 +1,5 @@
+id_rap,codigo_competencia,competencia_modulo,descripcion_rap,horas,fase,estado,fecha_evaluacion,instructor_evaluador,observaciones
+"RAP-01","220501096-01","Desarrollo Web","Construir interfaces responsivas con HTML y CSS","20","Fase 1","Aprobado","2026-03-15","Ing. Roberto Torres","Cumple con estándares semánticos HTML5 y media queries fluidas en múltiples resoluciones."
+"RAP-02","220501096-02","Desarrollo Web","Implementar lógica reactiva de componentes","30","Fase 1","Por Mejorar","2026-04-10","Dra. Carolina Méndez","La evidencia entregada requiere ajustar el manejo de estado reactivo y separación de responsabilidades en los controladores del front-end. Falta cobertura de casos borde."
+"RAP-03","220501096-03","Bases de Datos","Diseñar modelo relacional entidad-relación","25","Fase 1","Pendiente","En revisión","Mg. Sandra Salazar","Diagrama conceptual entregado en formato draw.io. Pendiente validación de normalización 3FN."
+"RAP-04","240201524-01","Inglés Técnico","Interpretar manuales técnicos de software en idioma inglés","15","Fase 2","No Evaluado","","Lic. David Miller","Programado para el segundo ciclo lectivo."
