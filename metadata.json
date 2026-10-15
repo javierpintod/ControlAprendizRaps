@@ -1,0 +1,6 @@
+{
+  "name": "EduTrack Analytics - Sistema de Seguimiento de Formación",
+  "description": "Plataforma analítica local-first para la carga de Excel, auditoría de Resultados de Aprendizaje (RAPs) y seguimiento curricular interactivo con especificación SRS formal.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
